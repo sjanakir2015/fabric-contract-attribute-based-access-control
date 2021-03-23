@@ -5,6 +5,6 @@
 'use strict';
 
 //  const MyContract = require('./lib/my-contract');
-const MyContract = require('./lib/supplychaincontract');
+const MyContract = require('./lib/payloadcontract');
 
 module.exports.contracts = [ MyContract ];

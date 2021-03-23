@@ -1,4 +1,4 @@
-import { Component,Inject,Input, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, Inject, Input, OnInit, ChangeDetectorRef } from '@angular/core';
 import { MatTableDataSource } from '@angular/material/table';
 import { ApiService, UserService } from '../../_services/index';
 import { MatDialog, MatDialogRef, MAT_DIALOG_DATA, TooltipPosition } from '@angular/material';
@@ -11,8 +11,8 @@ import { animate, state, style, transition, trigger } from '@angular/animations'
   providers: [],
   animations: [
     trigger('detailExpand', [
-      state('collapsed', style({height: '0px', minHeight: '0'})),
-      state('expanded', style({height: '*'})),
+      state('collapsed', style({ height: '0px', minHeight: '0' })),
+      state('expanded', style({ height: '*' })),
       transition('expanded <=> collapsed', animate('225ms cubic-bezier(0.4, 0.0, 0.2, 1)')),
     ]),
   ],
@@ -21,69 +21,140 @@ import { animate, state, style, transition, trigger } from '@angular/animations'
 export class OrdersTableComponent implements OnInit {
   orders: MatTableDataSource<Order[]>;
   currentUser: any;
-  columnsToDisplay = ['orderId', 'productId', 'price', 'quantity', 'producerId', 'retailerId', 'status', 'trackingInfo'];
+  columnsToDisplay = ['id', 'cubesatSize', 'frequencyBand', 'mass', 'owner', 'launcher', 'status'];
   expandedElement: Order | null;
 
   @Input('regulator') regulator: boolean;
 
-  constructor(private api: ApiService, private user: UserService, private cd: ChangeDetectorRef, public dialog: MatDialog) {}
+  constructor(private api: ApiService, private user: UserService, private cd: ChangeDetectorRef, public dialog: MatDialog) { }
 
   ngOnInit() {
     this.currentUser = this.user.getCurrentUser();
-    console.log("currentUser: "+this.currentUser);
+    //console.log("currentUser: "+this.currentUser);
     this.regulator = this.regulator !== undefined;
-    console.log(`Regulator Boolean attribute is ${this.regulator ? '' : 'non-'}present!`);
+    //console.log(`Regulator Boolean attribute is ${this.regulator ? '' : 'non-'}present!`);
 
-    // Load up the Orders from backend
-    this.api.orders$.subscribe ( currentOrders => {
+    // Load up the Assets from backend
+    this.api.orders$.subscribe(currentOrders => {
       this.orders = new MatTableDataSource(currentOrders);
       this.cd.markForCheck();
     })
-    this.api.queryOrders(this.currentUser.userid, this.currentUser.password);
+    this.api.queryOrders();
+    //this.createAsset('1');
   }
+
   applyFilter(filterValue: string) {
     this.orders.filter = filterValue.trim().toLowerCase();
   }
 
-  // producer
-  acceptOrder(orderid) {
-    this.api.id = orderid;
-    this.api.receiveOrder().subscribe(api => {
-      this.api.queryOrders(this.currentUser.userid, this.currentUser.password);
+/*    // payloadowner
+    createAsset(assetid) {
+      this.api.body = {
+        id: "1234",
+        owner: 'user1',
+        frequencyBand: '2GHz',
+        cubesatSize: '2U',
+        mass: '2kg'
+      };
+
+      this.api.id = '1234';
+      this.api.createAsset().subscribe(api => {
+        this.api.queryOrders();
+      }, error => {
+        console.log(JSON.stringify(error));
+        alert("Problem creating payload asset: " + error['error']['message'])
+      });
+    }
+*/
+  // SATELLITE_LAUNCHER calls
+  assignSlot(assetid) {
+    this.api.id = assetid;
+    this.api.assignSlot().subscribe(api => {
+      this.api.queryOrders();
     }, error => {
-      alert ("Producer is having a problem accepting order: " + orderid)
+      console.log(JSON.stringify(error));
+      alert("Problem accepting order: " + error['error']['message'])
     });
   }
 
+  // payloadowner calls
+  shipPayload(assetid) {
+    this.api.id = assetid;
+    this.api.shipPayload().subscribe(api => {
+      this.api.queryOrders();
+    }, error => {
+      console.log(JSON.stringify(error));
+      alert("Problem creating payload asset: " + error['error']['message'])
+    });
+  }
+
+  //  Satellite launcher calls
+  shipmentReceived(assetid) {
+    console.log ('Shipment received: assetid =  ' +  assetid);
+    this.api.id = assetid;
+    this.api.ShipmentReceived().subscribe(api => {
+      this.api.queryOrders();
+    }, error => {
+      console.log(JSON.stringify(error));
+      alert("Problem accepting order: " + error['error']['message'])
+    });
+  }
+
+  //  Satellite launcher calls
+  clearForFlight(assetid) {
+    console.log ('Cleared for Flight, Yay: assetid =  ' +  assetid);
+    this.api.id = assetid;
+    this.api.clearForFlight().subscribe(api => {
+      this.api.queryOrders();
+    }, error => {
+      console.log(JSON.stringify(error));
+      alert("Problem accepting order: " + error['error']['message'])
+    });
+  }
+
+  //  Satellite launcher calls
+  verifyPayload(assetid) {
+    console.log ('verifypayload: assetid =  ' +  assetid);
+    this.api.id = assetid;
+    this.api.verifyPayload().subscribe(api => {
+      this.api.queryOrders();
+    }, error => {
+      console.log(JSON.stringify(error));
+      alert("Problem accepting order: " + error['error']['message'])
+    });
+  }
+
+/*
   // create dialog with shipper select menu
-  chooseShipper(orderid){
+  chooseShipper(orderid) {
     let shippers = [];
     this.api.getAllUsers().subscribe(allUsers => {
-      console.log(allUsers);
-      var userArray = Object.keys(allUsers).map(function(userIndex){
-          let user = allUsers[userIndex];
-          // do something with person
-          return user;
+      //console.log(allUsers);
+      var userArray = Object.keys(allUsers).map(function (userIndex) {
+        let user = allUsers[userIndex];
+        // do something with person
+        return user;
       });
 
-      for(let u of userArray){
-        if(u['usertype'] == "shipper"){
+      for (let u of userArray) {
+        if (u['usertype'] == "shipper") {
           shippers.push(u);
         }
       }
     }, error => {
-      console.log(error);
+      console.log(JSON.stringify(error));
+      alert("Problem choosing shipper: " + error['error']['message'])
     });
 
     // Open ToShipper Dialog
     const dialogRef = this.dialog.open(ToShipperDialog, {
       disableClose: false,
       width: '600px',
-      data: {shippers: shippers}
+      data: { shippers: shippers }
     });
 
     dialogRef.afterClosed().subscribe(result => {
-      if(result){
+      if (result) {
         this.assignShipper(orderid, result['id']);
       }
     });
@@ -94,9 +165,10 @@ export class OrdersTableComponent implements OnInit {
     this.api.id = orderid;
     this.api.shipperid = shipperid;
     this.api.assignShipper().subscribe(api => {
-      this.api.queryOrders(this.currentUser.userid, this.currentUser.password);
+      this.api.queryOrders();
     }, error => {
-      alert ("Producer is having a problem packaging items of order: " + orderid)
+      console.log(JSON.stringify(error));
+      alert("Problem assigning shipper: " + error['error']['message'])
     });
   }
 
@@ -104,9 +176,10 @@ export class OrdersTableComponent implements OnInit {
   createShipment(orderid) {
     this.api.id = orderid;
     this.api.createShipment().subscribe(api => {
-      this.api.queryOrders(this.currentUser.userid, this.currentUser.password);
+      this.api.queryOrders();
     }, error => {
-      alert ("Producer is having a problem creating shipment for order: " + orderid)
+      console.log(JSON.stringify(error));
+      alert("Problem creating shipment: " + error['error']['message'])
     });
   }
 
@@ -114,9 +187,10 @@ export class OrdersTableComponent implements OnInit {
   transportShipment(orderid) {
     this.api.id = orderid;
     this.api.transportShipment().subscribe(api => {
-      this.api.queryOrders(this.currentUser.userid, this.currentUser.password);
+      this.api.queryOrders();
     }, error => {
-      alert ("Producer is having a problem shipping shipment for order: " + orderid)
+      console.log(JSON.stringify(error));
+      alert("Problem transporting shipment: " + error['error']['message'])
     });
   }
 
@@ -124,30 +198,32 @@ export class OrdersTableComponent implements OnInit {
   receiveShipment(orderid) {
     this.api.id = orderid;
     this.api.receiveShipment().subscribe(api => {
-      this.api.queryOrders(this.currentUser.userid, this.currentUser.password);
+      this.api.queryOrders();
     }, error => {
-      alert ("Problem receiving shipment")
+      console.log(JSON.stringify(error));
+      alert("Problem receiving shipment: " + error['error']['message'])
     })
   }
-
+*/
   // delete order
-  deleteOrder(order){
+  deleteAsset(order) {
     // Open Tile Dialog
     const dialogRef = this.dialog.open(DeleteOrderDialog, {
       disableClose: false,
       width: '600px',
-      data: {order: order}
+      data: { order: order }
     });
 
     dialogRef.afterClosed().subscribe(result => {
 
-      if(result){
-        this.api.id = order.orderId;
-        this.api.deleteOrder().subscribe(res => {
+      if (result) {
+        this.api.id = order.id;
+        this.api.deleteAsset().subscribe(res => {
           console.log(res);
-          this.api.queryOrders(this.currentUser.userid, this.currentUser.password);
+          this.api.queryOrders();
         }, error => {
-          console.log(error);
+          console.log(JSON.stringify(error));
+          alert("Problem deleting order: " + error['error']['message'])
         });
       }
     });
@@ -161,7 +237,7 @@ export interface Order {
   quantity: number;
   producerId: string;
   retailerId: string;
-  currentOrderState: number;
+  currentAssetState: number;
   trackingInfo: string;
 }
 
@@ -174,16 +250,16 @@ export interface ShipperDialogData {
   templateUrl: './../dialogs/to-shipper-dialog.html',
   styleUrls: ['./orders-table.component.scss'],
 })
-export class ToShipperDialog implements OnInit{
+
+export class ToShipperDialog implements OnInit {
   model: any;
   constructor(
     public dialogRef: MatDialogRef<ToShipperDialog>,
-    @Inject(MAT_DIALOG_DATA) public data: ShipperDialogData) {}
+    @Inject(MAT_DIALOG_DATA) public data: ShipperDialogData) { }
 
-  ngOnInit(){
+  ngOnInit() {
     this.model = {};
   }
-
 }
 
 export interface DeleteDialogData {
@@ -195,10 +271,10 @@ export interface DeleteDialogData {
   templateUrl: './../dialogs/delete-order-dialog.html',
   styleUrls: ['./orders-table.component.scss'],
 })
-export class DeleteOrderDialog{
+
+export class DeleteOrderDialog {
   model: any;
   constructor(
     public dialogRef: MatDialogRef<DeleteOrderDialog>,
-    @Inject(MAT_DIALOG_DATA) public data: DeleteDialogData) {}
-
+    @Inject(MAT_DIALOG_DATA) public data: DeleteDialogData) { }
 }

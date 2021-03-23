@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { HttpClient} from '@angular/common/http';
+import { HttpClient, HttpHeaders} from '@angular/common/http';
+import { UserService } from './user.service';
 import { BehaviorSubject, Observable } from '../../../node_modules/rxjs';
 
 @Injectable({
@@ -8,6 +9,7 @@ import { BehaviorSubject, Observable } from '../../../node_modules/rxjs';
 export class ApiService {
 
   id: String = "";
+  pwd: String = "";
   shipperid: String = "";
   body: Object;
   options: Object;
@@ -15,48 +17,79 @@ export class ApiService {
   orders$: Observable<any[]> = this.OrdersData.asObservable();
 
   statuses = {
-    1: "ORDER_CREATED",
-    2: "ORDER_RECEIVED",
-    3: "SHIPMENT_ASSIGNED",
-    4: "SHIPMENT_CREATED",
-    5: "SHIPMENT_IN_TRANSIT",
-    6: "SHIPMENT_RECEIVED",
-    7: "ORDER_CLOSED"
+    1:  "ASSET_CREATED",               // PAYLOAD_OWNER
+    2:  "ASSET_DETAILS_VERIFIED",      // SATELLITE_MANUFACTURER
+    3:  "ASSET_DETAILS_MODIFIED",      // PAYLOAD_OWNER
+    4:  "ASSET_IN_TRANSIT",           // PAYLOAD_OWNER
+    5:  "ASSET_RECEIVED",              // SATELLITE_MANUFACTURER
+    6:  "ASSET_CLEAR_FOR_FLIGHT",
+    7:  "ASSET_CLOSED"                 // Not currently used
   };
 
   baseUrl = "http://localhost:3000";
 
-  constructor(private httpClient: HttpClient) {}
+  constructor(private httpClient: HttpClient, private userService: UserService) {}
+
   getAllStatuses(){
     return this.statuses;
   }
 
+  createUserAuthorizationHeader(headers: HttpHeaders) {
+    const currentUser = this.userService.getCurrentUser();
+    return headers.append('Authorization', 'Basic ' + btoa(currentUser.userid+':'+currentUser.password));
+  }
+
   getAllUsers(){
-    return this.httpClient.get(this.baseUrl + '/api/users');
+    let headers = new HttpHeaders();
+    //
+    //  NOTE: an admin identity is needed to invoke this API since it calls the CA methods.
+    headers = headers.append('Authorization', 'Basic ' + btoa('admin:adminpw'));
+    // replace with this line to pass in the current user vs admin
+    //headers = this.createUserAuthorizationHeader(headers);
+    return this.httpClient.get(this.baseUrl + '/api/users/', {headers:headers});
   }
 
+  // This API is used during login to get the details of specific user trying to log in
+  // The 'usertype' is retrieved to set the currentUser for this application
+  getUser(){
+    let headers = new HttpHeaders();
+    //
+    //  NOTE: an admin identity is needed to invoke this API since it calls the CA methods.
+    headers = headers.append('Authorization', 'Basic ' + btoa('admin:adminpw'));
+    // replace with this line to pass in the user trying to log in vs admin
+    //headers = headers.append('Authorization', 'Basic ' + btoa(this.id+':'+this.pwd));
+    return this.httpClient.get(this.baseUrl + '/api/users/'+ this.id, {headers:headers});
+  }
+
+  // This API checks to see if user credentials exist in Wallet
   isUserEnrolled(){
-    return this.httpClient.get(this.baseUrl + '/api/is-user-enrolled/' + this.id);
+    let headers = new HttpHeaders();
+    headers = this.createUserAuthorizationHeader(headers);
+    return this.httpClient.get(this.baseUrl + '/api/is-user-enrolled/' + this.id, {headers:headers});
   }
 
-  queryOrder() {
-    return this.httpClient.get(this.baseUrl + '/api/orders/' + this.id)
+  // NOTE: This API isn't invoked by the UI application.  It is provided to be invoked by URL only
+  // As a result, an admin identity needs to call this
+  queryAsset() {
+    let headers = new HttpHeaders();
+    //headers = this.createUserAuthorizationHeader(headers);
+    headers = headers.append('Authorization', 'Basic ' + btoa('admin:adminpw'));
+    return this.httpClient.get(this.baseUrl + '/api/assets/' + this.id, {headers:headers})
   }
 
-  queryOrders(userid, password) {
-    console.log ("In queryOrders: " +userid+", "+password);
-    // Need to pass current userid and password of currently logged in user, 
-    // as server might restart, resetting server side current user to admin
-    this.httpClient.get<any[]>(this.baseUrl + '/api/orders/?userid='+userid+'&password='+password).subscribe (orders => {
+  queryOrders() {
+    let headers = new HttpHeaders();
+    headers = this.createUserAuthorizationHeader(headers);
+    this.httpClient.get<any[]>(this.baseUrl + '/api/assets/', {headers:headers}).subscribe (orders => {
       console.log (orders);
       // Add status to each order, based on this.statuses
       for (let i of orders) {
-        i.status = this.statuses[i.currentOrderState];
+        i.status = this.statuses[i.currentAssetState];
       }
       this.OrdersData.next(orders);
     }, error => {
-      console.log(error);
-      alert ("Problem getting orders")
+      console.log(JSON.stringify(error));
+      alert("Problem getting orders: " + error['error']['message']);
     })
   }
 
@@ -64,36 +97,84 @@ export class ApiService {
     this.OrdersData.next([]);
   }
 
-  deleteOrder(){
-    console.log ("deleting order: " + this.baseUrl + '/api/orders/' + this.id)
-    return this.httpClient.delete(this.baseUrl + '/api/orders/' + this.id)
+  deleteAsset(){
+    let headers = new HttpHeaders();
+    headers = this.createUserAuthorizationHeader(headers);
+    return this.httpClient.delete(this.baseUrl + '/api/assets/' + this.id, {headers:headers})
   }
 
-  getOrderHistory() {
-     return this.httpClient.get(this.baseUrl + '/api/order-history/' + this.id)
+  getAssetHistory() {
+    let headers = new HttpHeaders();
+    headers = this.createUserAuthorizationHeader(headers);
+    return this.httpClient.get(this.baseUrl + '/api/asset-history/' + this.id, {headers:headers})
   }
 
+  /*  State changes and corresponding apis:
+  ASSET_CREATED: 1,               // PAYLOAD_OWNER
+  ASSET_DETAILS_VERIFIED: 2,      // SATELLITE_MANUFACTURER
+  ASSET_DETAILS_MODIFIED: 3,      // PAYLOAD_OWNER
+  ASSET_IN_TRANSIT: 4,            // PAYLOAD_OWNER
+  ASSET_RECEIVED: 5,              // SATELLITE_MANUFACTURER
+  ASSET_CLOSED: 6                 // Not currently used
+  */
+
+  //  Payload owner:  Create Payload asset;  set state to ASSET_CREATED
+  /*createAsset() {
+    let headers = new HttpHeaders();
+    headers = this.createUserAuthorizationHeader(headers);
+    return this.httpClient.post(this.baseUrl + '/api/assets', this.body, {headers:headers})
+  }
+*/
+  // =======================
+  //  Payload owner:  Modify Payload details;  set state to ASSET_DETAILS_MODIFIED
   orderProduct() {
-    return this.httpClient.post(this.baseUrl + '/api/orders', this.body)
+    let headers = new HttpHeaders();
+    headers = this.createUserAuthorizationHeader(headers);
+    return this.httpClient.post(this.baseUrl + '/api/assets', this.body, {headers:headers})
+  }
+  //  satellite Manufacturer:  accept Payload;  set state to ASSET_DETAILS_VERIFIED
+  assignSlot() {
+    let headers = new HttpHeaders();
+    headers = this.createUserAuthorizationHeader(headers);
+    return this.httpClient.put(this.baseUrl + '/api/verify-payload/' + this.id, {}, {headers:headers})
   }
 
-  receiveOrder() {
-    return this.httpClient.put(this.baseUrl + '/api/receive-order/' + this.id, {})
+  //  satellite Manufacturer:  accept Payload;  set state to ASSET_DETAILS_VERIFIED
+  verifyPayload() {
+    let headers = new HttpHeaders();
+    headers = this.createUserAuthorizationHeader(headers);
+    return this.httpClient.put(this.baseUrl + '/api/verify-payload/' + this.id, {}, {headers:headers})
   }
 
-  assignShipper() {
-    return this.httpClient.put(this.baseUrl + '/api/assign-shipper/' + this.id + '?shipperid=' + this.shipperid, {})
+  //  Payload owner:  Ship Payload and update state;  set state to ASSET_IN_TRANSIT
+  shipPayload() {
+    let headers = new HttpHeaders();
+    headers = this.createUserAuthorizationHeader(headers);
+    return this.httpClient.put(this.baseUrl + '/api/ship-payload/' + this.id, {}, {headers:headers})
   }
 
-  createShipment() {
-    return this.httpClient.put(this.baseUrl + '/api/create-shipment-for-order/' + this.id, {})
+  //  Satellite Manufacturer:  Received Payload shipment;  set state to ASSET_RECEIVED
+  ShipmentReceived() {
+    let headers = new HttpHeaders();
+    headers = this.createUserAuthorizationHeader(headers);
+    return this.httpClient.put(this.baseUrl + '/api/receive-shipment/' + this.id, {}, {headers:headers})
   }
 
-  transportShipment() {
-    return this.httpClient.put(this.baseUrl + '/api/transport-shipment/' + this.id, {})
+  //  Satellite Manufacturer:  Clear Payload for flight;  set state to ASSET_CLEAR_FOR_FLIGHT
+  clearForFlight() {
+    let headers = new HttpHeaders();
+    headers = this.createUserAuthorizationHeader(headers);
+    return this.httpClient.put(this.baseUrl + '/api/clear-for-flight/' + this.id, {}, {headers:headers})
   }
 
-  receiveShipment() {
-    return this.httpClient.put(this.baseUrl + '/api/receive-shipment/' + this.id, {})
+  //  Payload owner:  Modify Payload details;  set state to ASSET_DETAILS_MODIFIED
+  //   not used currently
+  modifyPayload() {
+    console.log ('api.body = ' + this.body);
+    let headers = new HttpHeaders();
+    headers = this.createUserAuthorizationHeader(headers);
+    return this.httpClient.post(this.baseUrl + '/api/modify-payload', this.body, {headers:headers})
   }
+
+
 }

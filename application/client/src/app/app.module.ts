@@ -7,17 +7,15 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { MatButtonModule, MatCheckboxModule, MatDialogModule, MatDividerModule, MatFormFieldModule, MatGridListModule, MatIconModule, MatInputModule,MatMenuModule,MatProgressBarModule, MatStepperModule,MatTableModule,MatTabsModule, MatToolbarModule, MatTooltipModule } from '@angular/material';
 
 /* Components */
+import { HomeComponent } from './home/home.component';
 import { AppComponent } from './app.component';
+import { UserManagementComponent } from './user-management/user-management.component';
 import { LoginComponent } from './login/login.component';
 import { EnrollComponent } from './enroll/enroll.component';
-import { HomeComponent } from './home/home.component';
-import { CustomerComponent } from './customer/customer.component';
-import { ProducerComponent } from './producer/producer.component';
 import { QueryorderComponent } from './queryorder/queryorder.component';
 import { RegulatorComponent } from './regulator/regulator.component';
-import { RetailerComponent } from './retailer/retailer.component';
-import { ShipperComponent } from './shipper/shipper.component';
-import { UserManagementComponent } from './user-management/user-management.component';
+import { PayloadownerComponent } from './payloadowner/payloadowner.component';
+import { LauncherComponent } from './launcher/launcher.component';
 
 /* Partial Components */
 import { OrderFormComponent } from './_partials/order-form/order-form.component';
@@ -36,12 +34,12 @@ import { AuthGuard } from './_guards/auth.guard';
     HomeComponent,
     LoginComponent,
     EnrollComponent,
-    CustomerComponent,
-    ProducerComponent,
+
+    LauncherComponent,
+    PayloadownerComponent,
+
     QueryorderComponent,
     RegulatorComponent,
-    RetailerComponent,
-    ShipperComponent,
     UserManagementComponent,
     OrderFormComponent,
     OrderHistoryComponent,

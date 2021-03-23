@@ -3,11 +3,11 @@ import { UserService } from '../_services/index';
 
 @Component({
   selector: 'app-producer',
-  templateUrl: './producer.component.html',
-  styleUrls: ['./producer.component.scss']
+  templateUrl: './launcher.component.html',
+  styleUrls: ['./launcher.component.scss']
 })
-export class ProducerComponent implements OnInit {
-  
+export class LauncherComponent implements OnInit {
+
   currentUser: any;
 
   constructor(private user: UserService) { }
